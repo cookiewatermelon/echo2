@@ -1,0 +1,1445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EchoLink</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- React & React DOM -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  
+  <!-- Babel Standalone for inline JSX execution on ChromeOS & all browsers -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      background-color: #050507;
+      color: #f8fafc;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow: hidden;
+      margin: 0;
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.2);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <!-- Firebase Integration Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, doc, setDoc, getDoc, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    window.FirebaseDB = { initializeApp, getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged, getFirestore, collection, doc, setDoc, getDoc, addDoc, onSnapshot };
+  </script>
+
+  <!-- Application Logic -->
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+    // SVG Icon Helper Components
+    const SparklesIcon = ({ className = "w-6 h-6" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m11-16l1.5 4.5L21 7l-4.5 1.5L15 13l-1.5-4.5L9 7l4.5-1.5L15 1z" />
+      </svg>
+    );
+
+    const PaperclipIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+      </svg>
+    );
+
+    const CameraIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    );
+
+    const MicIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+      </svg>
+    );
+
+    const MessageSquareIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+      </svg>
+    );
+
+    const MusicIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 .895-2 3-2 3 .895 3 2zm12 0c0 1.105-1.343 2-3 2s-3-.895-3-2 .895-2 3-2 3 .895 3 2zM9 10l12-3" />
+      </svg>
+    );
+
+    const UserIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+      </svg>
+    );
+
+    const SendIcon = ({ className = "w-3.5 h-3.5" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+      </svg>
+    );
+
+    const SkipBackIcon = ({ className = "w-5 h-5" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <polygon points="19 20 9 12 19 4 19 20" />
+        <line x1="5" y1="19" x2="5" y2="5" />
+      </svg>
+    );
+
+    const SkipForwardIcon = ({ className = "w-5 h-5" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <polygon points="5 4 15 12 5 20 5 4" />
+        <line x1="19" y1="5" x2="19" y2="19" />
+      </svg>
+    );
+
+    const PlayIcon = ({ className = "w-6 h-6" }) => (
+      <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <polygon points="5 3 19 12 5 21 5 3" />
+      </svg>
+    );
+
+    const PauseIcon = ({ className = "w-6 h-6" }) => (
+      <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+        <rect x="6" y="4" width="4" height="16" />
+        <rect x="14" y="4" width="4" height="16" />
+      </svg>
+    );
+
+    const UserPlusIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+      </svg>
+    );
+
+    const SearchIcon = ({ className = "w-3.5 h-3.5" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+    );
+
+    const XIcon = ({ className = "w-4 h-4" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+      </svg>
+    );
+
+    const ZapIcon = ({ className = "w-3 h-3" }) => (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+      </svg>
+    );
+
+    // Vector Avatars
+    const FUN_AVATARS = [
+      { id: 'av1', name: 'Cosmic Cat', svg: '🐱', bg: 'bg-gradient-to-tr from-pink-500 to-purple-600' },
+      { id: 'av2', name: 'Cyber Donut', svg: '🍩', bg: 'bg-gradient-to-tr from-purple-500 to-indigo-600' },
+      { id: 'av3', name: 'Origami Fox', svg: '🦊', bg: 'bg-gradient-to-tr from-rose-500 to-amber-500' },
+      { id: 'av4', name: 'Pixel Ghost', svg: '👻', bg: 'bg-gradient-to-tr from-cyan-500 to-blue-600' },
+      { id: 'av5', name: 'Retro Bear', svg: '🐻', bg: 'bg-gradient-to-tr from-amber-500 to-rose-600' },
+      { id: 'av6', name: 'Neon Panda', svg: '🐼', bg: 'bg-gradient-to-tr from-emerald-500 to-teal-600' },
+      { id: 'av7', name: 'Astro Rabbit', svg: '🐰', bg: 'bg-gradient-to-tr from-violet-500 to-fuchsia-600' },
+      { id: 'av8', name: 'Zen Koala', svg: '🐨', bg: 'bg-gradient-to-tr from-sky-500 to-indigo-600' }
+    ];
+
+    // Echo Banners
+    const BANNERS_SOLID = [
+      { id: 'b_def', name: 'Default Slate', class: 'bg-[#18181b]', type: 'solid' },
+      { id: 'b1', name: 'Obsidian Velvet', class: 'bg-gradient-to-r from-zinc-900 to-neutral-900', type: 'solid' },
+      { id: 'b2', name: 'Neon Dusk', class: 'bg-gradient-to-r from-purple-900 via-pink-900 to-rose-950', type: 'solid' },
+      { id: 'b3', name: 'Cyber Indigo', class: 'bg-gradient-to-r from-indigo-950 via-slate-900 to-blue-950', type: 'solid' },
+      { id: 'b4', name: 'Emerald Shadow', class: 'bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-900', type: 'solid' },
+      { id: 'b5', name: 'Crimson Glow', class: 'bg-gradient-to-r from-rose-950 via-red-950 to-zinc-950', type: 'solid' }
+    ];
+
+    const BANNERS_LIVE = [
+      { id: 'b_live1', name: 'Falling Cherry Blossoms', type: 'blossoms' },
+      { id: 'b_live2', name: 'Cosmic Ember Glow', type: 'embers' },
+      { id: 'b_live3', name: 'RGB Spectrum Flow', type: 'rgb' },
+      { id: 'b_live4', name: 'Aurora Pulse Waves', type: 'aurora' },
+      { id: 'b_live5', name: 'Hyperdrive Starfield', type: 'starfield' }
+    ];
+
+    // Chat Wallpapers
+    const CHAT_WALLPAPERS_SOLID = [
+      { id: 'cw_def', name: 'Deep Space', class: 'bg-[#050507]' },
+      { id: 'cw_sol1', name: 'Midnight Velvet', class: 'bg-zinc-950' },
+      { id: 'cw_sol2', name: 'Electric Amethyst', class: 'bg-gradient-to-b from-[#18052b] to-[#050507]' },
+      { id: 'cw_sol3', name: 'Cyber Slate', class: 'bg-gradient-to-b from-slate-900 to-[#050507]' },
+      { id: 'cw_sol4', name: 'Deep Ruby', class: 'bg-gradient-to-b from-rose-950 to-[#050507]' }
+    ];
+
+    const CHAT_WALLPAPERS_LIVE = [
+      { id: 'cw_live1', name: 'Neon Rain', type: 'neon-rain' },
+      { id: 'cw_live2', name: 'Cosmic Dust Orbit', type: 'starfield' },
+      { id: 'cw_live3', name: 'Aurora Pulse Wave', type: 'aurora' },
+      { id: 'cw_live4', name: 'Hyperdrive Warp', type: 'blossoms' }
+    ];
+
+    // Halo Rings
+    const RINGS_SOLID = [
+      { id: 'r_def', name: 'Default Border', class: 'border-white/20', type: 'solid' },
+      { id: 'r1', name: 'Neon Pink', class: 'border-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]', type: 'solid' },
+      { id: 'r2', name: 'Electric Cyan', class: 'border-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]', type: 'solid' },
+      { id: 'r3', name: 'Vibrant Violet', class: 'border-purple-500 shadow-[0_0_10px_rgba(168,85,247,0.8)]', type: 'solid' },
+      { id: 'r4', name: 'Golden Amber', class: 'border-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.8)]', type: 'solid' },
+      { id: 'r5', name: 'Acid Lime', class: 'border-lime-400 shadow-[0_0_10px_rgba(163,230,53,0.8)]', type: 'solid' },
+      { id: 'r6', name: 'Rose Red', class: 'border-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.8)]', type: 'solid' }
+    ];
+
+    const RINGS_LIVE = [
+      { id: 'r_live1', name: 'Rainbow RGB Spinner', type: 'rgb-spinner' },
+      { id: 'r_live2', name: 'Pulsing Neon Flame', type: 'neon-flame' },
+      { id: 'r_live3', name: 'Electric Cyan Glow', type: 'cyan-glow' },
+      { id: 'r_live4', name: 'Star Dust Orbit', type: 'stardust' },
+      { id: 'r_live5', name: 'Cosmic Ring', type: 'cosmic' },
+      { id: 'r_live6', name: 'Neon Plasma Pulse', type: 'plasma-pulse' },
+      { id: 'r_live7', name: 'Hyperdrive Vortex', type: 'vortex' },
+      { id: 'r_live8', name: 'Electric Arc Spark', type: 'arc-spark' },
+      { id: 'r_live9', name: 'Radiant Solar Flare', type: 'solar-flare' },
+      { id: 'r_live10', name: 'Quantum Laser Mesh', type: 'quantum-mesh' }
+    ];
+
+    function App() {
+      const [isAuth, setIsAuth] = useState(false);
+      const [authMode, setAuthMode] = useState('signup');
+      const [showAuthModal, setShowAuthModal] = useState(false);
+      const [activeTab, setActiveTab] = useState('chat');
+      const [isDockVisible, setIsDockVisible] = useState(false);
+
+      const [currentUser, setCurrentUser] = useState({
+        username: 'alex_echo',
+        displayName: 'Alex Rivers',
+        birthday: '2004-08-12',
+        avatar: FUN_AVATARS[0],
+        about: 'Echoing thoughts into the void...',
+        banner: BANNERS_SOLID[0],
+        ring: RINGS_SOLID[0]
+      });
+
+      const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+      const [chatWallpapers, setChatWallpapers] = useState({});
+
+      const [authForm, setAuthForm] = useState({
+        username: '',
+        birthday: '',
+        avatar: FUN_AVATARS[0]
+      });
+      const [authError, setAuthError] = useState('');
+
+      const [conversations, setConversations] = useState([
+        {
+          id: 'c1',
+          user: {
+            id: 'u1',
+            name: 'Sophia Chen',
+            username: '@sophia_c',
+            avatar: FUN_AVATARS[1],
+            status: 'online',
+            about: 'Listening to music...',
+            banner: BANNERS_SOLID[1],
+            ring: RINGS_SOLID[1]
+          },
+          messages: [
+            { id: 'm1', sender: 'u1', text: 'Hey! Have you seen the new minimalist theme?', timestamp: '10:42 AM' },
+            { id: 'm2', sender: 'user-me', text: 'Yeah, it looks incredible! Love the neon vibe.', timestamp: '10:44 AM' }
+          ]
+        },
+        {
+          id: 'c2',
+          user: {
+            id: 'u2',
+            name: 'Liam Vance',
+            username: '@liam_v',
+            avatar: FUN_AVATARS[2],
+            status: 'offline',
+            about: 'Working on project.',
+            banner: BANNERS_SOLID[2],
+            ring: RINGS_SOLID[2]
+          },
+          messages: [
+            { id: 'm3', sender: 'u2', text: 'Did you upload that MP3 track to the player?', timestamp: 'Yesterday' }
+          ]
+        }
+      ]);
+
+      const [activeChatId, setActiveChatId] = useState('c1');
+      const [messageInput, setMessageInput] = useState('');
+      const [searchQuery, setSearchQuery] = useState('');
+
+      const [showAddFriendModal, setShowAddFriendModal] = useState(false);
+      const [friendUsernameInput, setFriendUsernameInput] = useState('');
+
+      const [isCameraActive, setIsCameraActive] = useState(false);
+      const [isRecordingVoice, setIsRecordingVoice] = useState(false);
+      const [, setRecordingTime] = useState(0);
+      const videoRef = useRef(null);
+      const mediaStreamRef = useRef(null);
+      const recordingIntervalRef = useRef(null);
+
+      const [tracks, setTracks] = useState([]);
+      const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+      const [isPlaying, setIsPlaying] = useState(false);
+      const [currentTime, setCurrentTime] = useState(0);
+      const [duration, setDuration] = useState(0);
+      const audioRef = useRef(null);
+
+      const [toasts, setToasts] = useState([]);
+      const dockRef = useRef(null);
+
+      const addToast = (msg) => {
+        const id = Date.now();
+        setToasts(prev => [...prev, { id, msg }]);
+        setTimeout(() => {
+          setToasts(prev => prev.filter(t => t.id !== id));
+        }, 3000);
+      };
+
+      useEffect(() => {
+        const handleMouseMove = (e) => {
+          const vWidth = window.innerWidth;
+          const vHeight = window.innerHeight;
+          const mouseX = e.clientX;
+          const mouseY = e.clientY;
+
+          const minX = vWidth * 0.25;
+          const maxX = vWidth * 0.75;
+          const minY = vHeight - 40;
+
+          if (dockRef.current) {
+            const rect = dockRef.current.getBoundingClientRect();
+            const isHoveringDock = (
+              mouseX >= rect.left &&
+              mouseX <= rect.right &&
+              mouseY >= rect.top &&
+              mouseY <= rect.bottom
+            );
+
+            if (isHoveringDock || (mouseY >= minY && mouseX >= minX && mouseX <= maxX)) {
+              setIsDockVisible(true);
+            } else {
+              setIsDockVisible(false);
+            }
+          } else if (mouseY >= minY && mouseX >= minX && mouseX <= maxX) {
+            setIsDockVisible(true);
+          } else {
+            setIsDockVisible(false);
+          }
+        };
+
+        window.addEventListener('mousemove', handleMouseMove);
+        return () => window.removeEventListener('mousemove', handleMouseMove);
+      }, []);
+
+      useEffect(() => {
+        if (!audioRef.current) return;
+        if (isPlaying) {
+          audioRef.current.play().catch(() => setIsPlaying(false));
+        } else {
+          audioRef.current.pause();
+        }
+      }, [isPlaying, currentTrackIndex]);
+
+      const handleAuthSubmit = (e) => {
+        e.preventDefault();
+        if (!authForm.username.trim()) {
+          setAuthError('Please enter a username.');
+          return;
+        }
+        if (!authForm.birthday) {
+          setAuthError('Please select your date of birth.');
+          return;
+        }
+
+        const newUser = {
+          ...currentUser,
+          username: authForm.username.trim().toLowerCase().replace(/\s+/g, '_'),
+          displayName: authForm.username.trim(),
+          birthday: authForm.birthday,
+          avatar: authForm.avatar
+        };
+
+        setCurrentUser(newUser);
+        setIsAuth(true);
+        setShowAuthModal(false);
+        setAuthError('');
+        addToast(`Welcome back, ${newUser.displayName}!`);
+      };
+
+      const handleLogout = () => {
+        setIsAuth(false);
+        setActiveTab('chat');
+        addToast('Logged out successfully.');
+      };
+
+      const handleSendMessage = (customText = null, imageAttachment = null, audioClip = false) => {
+        const textToSend = customText !== null ? customText : messageInput.trim();
+        if (!textToSend && !imageAttachment && !audioClip) return;
+
+        const newMsg = {
+          id: `m_${Date.now()}`,
+          sender: 'user-me',
+          text: audioClip ? '🎙️ Voice Recording Clip' : textToSend,
+          image: imageAttachment,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        };
+
+        setConversations(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, newMsg] } : c));
+        if (customText === null) setMessageInput('');
+
+        const activeConv = conversations.find(c => c.id === activeChatId);
+        if (activeConv?.user.id === 'u1') {
+          setTimeout(() => {
+            const aiMsg = {
+              id: `ai_${Date.now()}`,
+              sender: 'u1',
+              text: `Echo received: "${textToSend || 'attachment'}". Signal status active.`,
+              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            };
+            setConversations(prev => prev.map(c => c.id === activeChatId ? { ...c, messages: [...c.messages, aiMsg] } : c));
+          }, 900);
+        }
+      };
+
+      const handleFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (file.type.startsWith('image/')) {
+          const reader = new FileReader();
+          reader.onload = (ev) => handleSendMessage('', ev.target.result);
+          reader.readAsDataURL(file);
+        } else {
+          handleSendMessage(`📎 Attachment: ${file.name}`);
+        }
+      };
+
+      const startCamera = async () => {
+        try {
+          setIsCameraActive(true);
+          const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          mediaStreamRef.current = stream;
+          if (videoRef.current) videoRef.current.srcObject = stream;
+        } catch {
+          addToast('Camera unavailable or permission denied.');
+          setIsCameraActive(false);
+        }
+      };
+
+      const capturePhoto = () => {
+        if (!videoRef.current) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = videoRef.current.videoWidth || 640;
+        canvas.height = videoRef.current.videoHeight || 480;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+        const photoUrl = canvas.toDataURL('image/png');
+        stopCamera();
+        handleSendMessage('', photoUrl);
+      };
+
+      const stopCamera = () => {
+        if (mediaStreamRef.current) {
+          mediaStreamRef.current.getTracks().forEach(track => track.stop());
+        }
+        setIsCameraActive(false);
+      };
+
+      const startVoiceRecording = () => {
+        setIsRecordingVoice(true);
+        setRecordingTime(0);
+        recordingIntervalRef.current = setInterval(() => {
+          setRecordingTime(prev => prev + 1);
+        }, 1000);
+      };
+
+      const stopVoiceRecording = (send = true) => {
+        clearInterval(recordingIntervalRef.current);
+        setIsRecordingVoice(false);
+        if (send) {
+          handleSendMessage(null, null, true);
+          addToast('Voice clip sent.');
+        }
+      };
+
+      const handleAddFriend = (e) => {
+        e.preventDefault();
+        if (!friendUsernameInput.trim()) return;
+
+        const newFriendName = friendUsernameInput.trim();
+        const newConv = {
+          id: `c_${Date.now()}`,
+          user: {
+            id: `u_${Date.now()}`,
+            name: newFriendName,
+            username: `@${newFriendName.toLowerCase().replace(/\s+/g, '_')}`,
+            avatar: FUN_AVATARS[Math.floor(Math.random() * FUN_AVATARS.length)],
+            status: 'online',
+            about: 'Connected via EchoLink.',
+            banner: BANNERS_SOLID[0],
+            ring: RINGS_SOLID[0]
+          },
+          messages: [
+            { id: `m_first_${Date.now()}`, sender: 'user-me', text: `Hey ${newFriendName}! Connected on EchoLink 👋`, timestamp: 'Just now' }
+          ]
+        };
+
+        setConversations([newConv, ...conversations]);
+        setActiveChatId(newConv.id);
+        setShowAddFriendModal(false);
+        setFriendUsernameInput('');
+        addToast(`Added ${newFriendName} to your contacts.`);
+      };
+
+      const handleAudioImport = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const url = URL.createObjectURL(file);
+        const newTrack = {
+          id: `custom_${Date.now()}`,
+          title: file.name.replace(/\.[^/.]+$/, ""),
+          artist: 'Local Import',
+          album: 'My Music',
+          duration: 180,
+          cover: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300&auto=format&fit=crop&q=80',
+          audioUrl: url
+        };
+
+        setTracks([newTrack, ...tracks]);
+        setCurrentTrackIndex(0);
+        setIsPlaying(true);
+        addToast(`Imported "${newTrack.title}"`);
+      };
+
+      const formatTime = (secs) => {
+        if (isNaN(secs)) return '0:00';
+        const m = Math.floor(secs / 60);
+        const s = Math.floor(secs % 60);
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+      };
+
+      const activeConversation = conversations.find(c => c.id === activeChatId) || conversations[0];
+      const currentTrack = tracks[currentTrackIndex] || null;
+
+      const renderAvatarWithRing = (avatarObj, ringObj, sizeClass = 'w-12 h-12') => {
+        const ringType = ringObj?.type;
+        const isCustomImage = typeof avatarObj === 'string' || avatarObj?.customUrl;
+        const customSrc = typeof avatarObj === 'string' ? avatarObj : avatarObj?.customUrl;
+
+        return (
+          <div className="relative inline-block shrink-0">
+            {ringType === 'rgb-spinner' && (
+              <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-pink-500 via-purple-500 via-cyan-400 to-pink-500 animate-spin blur-[2px]" />
+            )}
+            {ringType === 'neon-flame' && (
+              <div className="absolute -inset-1 rounded-full bg-gradient-to-t from-pink-600 via-rose-500 to-amber-400 animate-pulse blur-[3px]" />
+            )}
+            {ringType === 'cyan-glow' && (
+              <div className="absolute -inset-1 rounded-full border border-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.9)]" />
+            )}
+            {ringType === 'stardust' && (
+              <div className="absolute -inset-1.5 rounded-full border-2 border-dashed border-pink-400 animate-spin" style={{ animationDuration: '6s' }} />
+            )}
+            {ringType === 'cosmic' && (
+              <div className="absolute -inset-1 rounded-full bg-gradient-to-r from-violet-600 to-pink-600 animate-pulse blur-[2px]" />
+            )}
+            {ringType === 'plasma-pulse' && (
+              <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-fuchsia-500 via-pink-400 to-rose-600 animate-ping opacity-75 blur-[2px]" style={{ animationDuration: '2s' }} />
+            )}
+            {ringType === 'vortex' && (
+              <div className="absolute -inset-1 rounded-full bg-conic-gradient from-cyan-400 via-indigo-600 via-fuchsia-500 to-cyan-400 animate-spin blur-[1.5px]" style={{ animationDuration: '1.5s' }} />
+            )}
+            {ringType === 'arc-spark' && (
+              <div className="absolute -inset-1 rounded-full border-2 border-emerald-400 shadow-[0_0_15px_rgba(52,211,153,1)] animate-pulse" />
+            )}
+            {ringType === 'solar-flare' && (
+              <div className="absolute -inset-1.5 rounded-full bg-gradient-to-r from-amber-400 via-orange-500 to-red-600 animate-spin blur-[2px]" style={{ animationDuration: '3s' }} />
+            )}
+            {ringType === 'quantum-mesh' && (
+              <div className="absolute -inset-1 rounded-full border-2 border-dotted border-cyan-300 shadow-[0_0_12px_rgba(103,232,249,0.9)] animate-spin" style={{ animationDuration: '4s' }} />
+            )}
+
+            <div className={`relative z-10 ${sizeClass} rounded-full flex items-center justify-center text-lg overflow-hidden border ${ringObj?.class || 'border-white/10'} ${avatarObj?.bg || 'bg-slate-800'}`}>
+              {isCustomImage ? (
+                <img src={customSrc} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span>{avatarObj?.svg || '👤'}</span>
+              )}
+            </div>
+          </div>
+        );
+      };
+
+      const LiveBannerCanvas = ({ type }) => {
+        const canvasRef = useRef(null);
+
+        useEffect(() => {
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const ctx = canvas.getContext('2d');
+          let animationFrameId;
+
+          const width = (canvas.width = canvas.offsetWidth || 300);
+          const height = (canvas.height = canvas.offsetHeight || 100);
+
+          let particles = [];
+          if (type === 'neon-rain') {
+            particles = Array.from({ length: 45 }, () => ({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              length: Math.random() * 18 + 8,
+              speed: Math.random() * 4 + 3,
+              opacity: Math.random() * 0.8 + 0.2
+            }));
+          } else if (type === 'blossoms') {
+            particles = Array.from({ length: 30 }, () => ({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              size: Math.random() * 4 + 2,
+              speedY: Math.random() * 1.5 + 0.8,
+              speedX: Math.sin(Math.random() * Math.PI) * 0.8,
+              opacity: Math.random() * 0.8 + 0.3,
+              rotation: Math.random() * Math.PI
+            }));
+          } else if (type === 'embers') {
+            particles = Array.from({ length: 40 }, () => ({
+              x: Math.random() * width,
+              y: Math.random() * height,
+              size: Math.random() * 3 + 1.5,
+              speedY: Math.random() * 2 + 1,
+              speedX: (Math.random() - 0.5) * 0.8,
+              opacity: Math.random() * 0.9 + 0.2
+            }));
+          } else if (type === 'starfield') {
+            particles = Array.from({ length: 50 }, () => ({
+              x: Math.random() * width - width / 2,
+              y: Math.random() * height - height / 2,
+              z: Math.random() * width
+            }));
+          }
+
+          let step = 0;
+
+          const render = () => {
+            step += 0.04;
+            ctx.clearRect(0, 0, width, height);
+
+            if (type === 'neon-rain') {
+              ctx.fillStyle = '#050507';
+              ctx.fillRect(0, 0, width, height);
+
+              particles.forEach((p) => {
+                p.y += p.speed;
+                if (p.y > height) {
+                  p.y = -20;
+                  p.x = Math.random() * width;
+                }
+
+                ctx.strokeStyle = `rgba(236, 72, 153, ${p.opacity})`;
+                ctx.shadowColor = '#ec4899';
+                ctx.shadowBlur = 8;
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y);
+                ctx.lineTo(p.x, p.y + p.length);
+                ctx.stroke();
+              });
+            } else if (type === 'blossoms') {
+              ctx.fillStyle = '#050507';
+              ctx.fillRect(0, 0, width, height);
+
+              particles.forEach((p) => {
+                p.y += p.speedY;
+                p.x += Math.sin(step + p.rotation) * 0.5;
+                if (p.y > height + 10) {
+                  p.y = -10;
+                  p.x = Math.random() * width;
+                }
+
+                ctx.save();
+                ctx.translate(p.x, p.y);
+                ctx.rotate(step + p.rotation);
+                ctx.fillStyle = `rgba(244, 114, 182, ${p.opacity})`;
+                ctx.shadowColor = '#f472b6';
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.ellipse(0, 0, p.size, p.size * 1.8, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+              });
+            } else if (type === 'embers') {
+              const grad = ctx.createLinearGradient(0, 0, 0, height);
+              grad.addColorStop(0, '#7c2d12');
+              grad.addColorStop(0.5, '#1c0a00');
+              grad.addColorStop(1, '#050507');
+              ctx.fillStyle = grad;
+              ctx.fillRect(0, 0, width, height);
+
+              particles.forEach((p) => {
+                p.y -= p.speedY;
+                p.x += p.speedX;
+                if (p.y < -5) {
+                  p.y = height + 5;
+                  p.x = Math.random() * width;
+                }
+
+                ctx.fillStyle = `rgba(251, 146, 60, ${p.opacity})`;
+                ctx.shadowColor = '#f97316';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+              });
+            } else if (type === 'aurora') {
+              const grad = ctx.createLinearGradient(0, 0, width, height);
+              grad.addColorStop(0, '#0f172a');
+              grad.addColorStop(1, '#050507');
+              ctx.fillStyle = grad;
+              ctx.fillRect(0, 0, width, height);
+
+              for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(0, height / 2);
+                for (let x = 0; x <= width; x += 10) {
+                  const y = Math.sin(x * 0.02 + step + i) * 22 + Math.cos(x * 0.015 + step * 0.6) * 16 + height / 2;
+                  ctx.lineTo(x, y);
+                }
+                ctx.lineTo(width, height);
+                ctx.lineTo(0, height);
+                ctx.closePath();
+
+                const colors = ['rgba(236,72,153,0.45)', 'rgba(34,211,238,0.45)', 'rgba(168,85,247,0.45)'];
+                ctx.fillStyle = colors[i % colors.length];
+                ctx.fill();
+              }
+            } else if (type === 'starfield') {
+              ctx.fillStyle = '#050507';
+              ctx.fillRect(0, 0, width, height);
+
+              ctx.save();
+              ctx.translate(width / 2, height / 2);
+
+              particles.forEach((p) => {
+                p.z -= 3;
+                if (p.z <= 0) p.z = width;
+
+                const k = 128 / p.z;
+                const px = p.x * k;
+                const py = p.y * k;
+
+                if (px >= -width / 2 && px <= width / 2 && py >= -height / 2 && py <= height / 2) {
+                  const size = (1 - p.z / width) * 3;
+                  ctx.fillStyle = '#38bdf8';
+                  ctx.shadowColor = '#818cf8';
+                  ctx.shadowBlur = 8;
+                  ctx.beginPath();
+                  ctx.arc(px, py, size, 0, Math.PI * 2);
+                  ctx.fill();
+                }
+              });
+              ctx.restore();
+            }
+
+            animationFrameId = requestAnimationFrame(render);
+          };
+
+          render();
+
+          return () => cancelAnimationFrame(animationFrameId);
+        }, [type]);
+
+        return <canvas ref={canvasRef} className="w-full h-full block" />;
+      };
+
+      const renderBannerBackground = (bannerObj) => {
+        if (['blossoms', 'embers', 'aurora', 'starfield'].includes(bannerObj?.type)) {
+          return (
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+              <LiveBannerCanvas type={bannerObj.type} />
+            </div>
+          );
+        }
+        if (bannerObj?.type === 'rgb') {
+          return (
+            <div className="absolute inset-0 bg-gradient-to-r from-pink-600 via-purple-600 to-cyan-600 animate-pulse opacity-80 pointer-events-none" />
+          );
+        }
+        return <div className={`absolute inset-0 ${bannerObj?.class || 'bg-[#18181b]'}`} />;
+      };
+
+      return (
+        <div className="relative w-full h-screen bg-[#050507] text-slate-100 font-sans overflow-hidden select-none flex flex-col">
+          {/* TOAST NOTIFICATIONS */}
+          <div className="fixed top-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none">
+            {toasts.map(t => (
+              <div key={t.id} className="px-4 py-2.5 rounded-2xl bg-[#0d0d10] border border-white/15 text-white text-xs font-semibold shadow-2xl backdrop-blur-xl animate-bounce">
+                {t.msg}
+              </div>
+            ))}
+          </div>
+
+          {!isAuth ? (
+            /* LANDING PAGE */
+            <div className="relative z-10 flex flex-col h-full justify-between px-6 md:px-16 py-8 overflow-y-auto bg-transparent">
+              <div className="absolute inset-0 -z-10 bg-gradient-to-br from-pink-600 via-rose-600 to-fuchsia-700 animate-pulse opacity-90 blur-3xl scale-125" style={{ animationDuration: '2s' }} />
+
+              <header className="flex justify-between items-center w-full max-w-6xl mx-auto">
+                <div className="flex items-center space-x-2.5">
+                  <SparklesIcon className="w-6 h-6 text-white shrink-0" />
+                  <span className="text-lg font-black tracking-wider text-white leading-none">ECHOLINK</span>
+                </div>
+
+                <button 
+                  onClick={() => { setAuthMode('login'); setShowAuthModal(true); }}
+                  className="px-5 py-2 rounded-full border border-white/20 bg-black/40 backdrop-blur-md text-xs font-bold text-white hover:bg-black/60 transition-all"
+                >
+                  Log In
+                </button>
+              </header>
+
+              <main className="w-full max-w-6xl mx-auto my-auto space-y-6 pt-12 text-left">
+                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tight leading-tight max-w-xl">
+                  Your personal space to connect.
+                </h1>
+
+                <div className="pt-2">
+                  <button 
+                    onClick={() => { setAuthMode('signup'); setShowAuthModal(true); }}
+                    className="px-8 py-3.5 rounded-2xl bg-white text-black font-extrabold text-sm hover:scale-105 active:scale-95 transition-all shadow-2xl"
+                  >
+                    Get Started
+                  </button>
+                </div>
+              </main>
+
+              <footer className="w-full max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 pt-20 pb-4">
+                <div className="p-4 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-xl shadow-lg hover:bg-white/15 transition-all min-h-[90px] flex flex-col justify-center">
+                  <h4 className="text-xs font-bold text-white">Direct Messaging</h4>
+                  <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">Instant 1-on-1 text, media, and voice clip exchanges.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-xl shadow-lg hover:bg-white/15 transition-all min-h-[90px] flex flex-col justify-center">
+                  <h4 className="text-xs font-bold text-white">RGB Lighting</h4>
+                  <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">Live customized banners and animated profile halos.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-xl shadow-lg hover:bg-white/15 transition-all min-h-[90px] flex flex-col justify-center">
+                  <h4 className="text-xs font-bold text-white">Music Player</h4>
+                  <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">Import local audio files and listen directly in-app.</p>
+                </div>
+                <div className="p-4 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-xl shadow-lg hover:bg-white/15 transition-all min-h-[90px] flex flex-col justify-center">
+                  <h4 className="text-xs font-bold text-white">Social Connections</h4>
+                  <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">Add friends and customize your identity space.</p>
+                </div>
+              </footer>
+
+              {showAuthModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xl">
+                  <div className="relative w-full max-w-md bg-[#0d0d10] border border-white/10 rounded-3xl p-6 shadow-2xl space-y-6">
+                    <button 
+                      onClick={() => setShowAuthModal(false)}
+                      className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-white/5"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+
+                    <div className="text-center space-y-1">
+                      <h3 className="text-xl font-extrabold text-white">
+                        {authMode === 'login' ? 'Welcome Back' : 'Create Account'}
+                      </h3>
+                      <p className="text-xs text-slate-400">Join the minimalist space for connection.</p>
+                    </div>
+
+                    <form onSubmit={handleAuthSubmit} className="space-y-4">
+                      {authError && <p className="text-xs text-rose-500 font-semibold text-center">{authError}</p>}
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Username</label>
+                        <input 
+                          type="text" 
+                          placeholder="e.g. alex_echo"
+                          value={authForm.username}
+                          onChange={(e) => setAuthForm({ ...authForm, username: e.target.value })}
+                          className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-white/30"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Date of Birth</label>
+                        <input 
+                          type="date" 
+                          value={authForm.birthday}
+                          onChange={(e) => setAuthForm({ ...authForm, birthday: e.target.value })}
+                          className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-white/30"
+                        />
+                      </div>
+
+                      {authMode === 'signup' && (
+                        <div className="space-y-2 pt-2">
+                          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Choose Avatar</label>
+                          <div className="grid grid-cols-4 gap-2">
+                            {FUN_AVATARS.map((av) => (
+                              <button
+                                key={av.id}
+                                type="button"
+                                onClick={() => setAuthForm({ ...authForm, avatar: av })}
+                                className={`p-3 rounded-2xl border text-xl flex items-center justify-center transition-all ${authForm.avatar.id === av.id ? 'border-pink-500 bg-pink-500/20' : 'border-white/10 bg-white/5'}`}
+                              >
+                                {av.svg}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="pt-4 flex justify-center">
+                        <div className="p-[2px] rounded-2xl bg-gradient-to-r from-pink-500 via-purple-500 via-cyan-400 to-pink-500 shadow-[0_0_15px_rgba(236,72,153,0.8)] w-full">
+                          <button 
+                            type="submit"
+                            className="w-full py-3.5 rounded-2xl bg-black text-white font-extrabold text-xs uppercase tracking-wider hover:bg-zinc-900 hover:scale-[1.01] active:scale-95 transition-all shadow-xl"
+                          >
+                            {authMode === 'login' ? 'Log In' : 'Create Account'}
+                          </button>
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* AUTHENTICATED APP VIEWS */
+            <div className="relative flex-1 flex flex-col h-full overflow-hidden">
+              <div className="flex-1 flex overflow-hidden">
+                {activeTab === 'chat' && (
+                  <div className="flex-1 flex h-full overflow-hidden">
+                    <aside className="w-80 flex flex-col h-full bg-[#0d0d10] border-r border-white/10">
+                      <div className="flex items-center justify-between p-4 border-b border-white/10">
+                        <div className="flex items-center space-x-2.5">
+                          <SparklesIcon className="w-5 h-5 text-pink-500 shrink-0" />
+                          <span className="font-extrabold tracking-wider text-sm text-white leading-none">ECHOLINK</span>
+                        </div>
+                        <button 
+                          type="button"
+                          onClick={() => setShowAddFriendModal(true)}
+                          className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white transition-colors cursor-pointer"
+                          title="Add Friend"
+                        >
+                          <UserPlusIcon className="w-4 h-4 pointer-events-none" />
+                        </button>
+                      </div>
+
+                      <div className="p-3">
+                        <div className="flex items-center px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                          <SearchIcon className="w-3.5 h-3.5 text-slate-400 mr-2 shrink-0" />
+                          <input 
+                            type="text" 
+                            placeholder="Search chats..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-500 w-full"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto px-2 space-y-1">
+                        {conversations
+                          .filter(c => c.user.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map(c => {
+                            const isSelected = c.id === activeChatId;
+                            const lastMsg = c.messages[c.messages.length - 1];
+                            return (
+                              <div
+                                key={c.id}
+                                onClick={() => setActiveChatId(c.id)}
+                                className={`flex items-center space-x-3 p-3 rounded-2xl cursor-pointer transition-all ${isSelected ? 'bg-white/10 border border-white/10' : 'hover:bg-white/5 border border-transparent'}`}
+                              >
+                                {renderAvatarWithRing(c.user.avatar, c.user.ring, 'w-10 h-10')}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex justify-between items-center">
+                                    <h4 className="text-xs font-bold text-white truncate">{c.user.name}</h4>
+                                    <span className="text-[10px] text-slate-500">{lastMsg?.timestamp}</span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 truncate mt-0.5">{lastMsg?.text || 'Attachment'}</p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                      </div>
+
+                      <div className="relative h-20 border-t border-white/10 overflow-hidden cursor-pointer group" onClick={() => setActiveTab('profile')}>
+                        {renderBannerBackground(currentUser.banner)}
+                        <div className="relative z-10 flex items-center space-x-3 p-3 h-full bg-black/40 backdrop-blur-sm group-hover:bg-black/60 transition-colors">
+                          {renderAvatarWithRing(currentUser.avatar, currentUser.ring, 'w-9 h-9')}
+                          <div className="min-w-0 flex-1 flex flex-col justify-center">
+                            <h4 className="text-xs font-bold text-white truncate">{currentUser.displayName}</h4>
+                            <p className="text-[10px] text-slate-200 truncate font-medium">{currentUser.about}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </aside>
+
+                    <main className="relative flex-1 flex flex-col h-full overflow-hidden">
+                      {(() => {
+                        const wp = chatWallpapers[activeChatId] || CHAT_WALLPAPERS_SOLID[0];
+                        if (wp.type) {
+                          return (
+                            <div className="absolute inset-0 z-0">
+                              <LiveBannerCanvas type={wp.type} />
+                            </div>
+                          );
+                        }
+                        return <div className={`absolute inset-0 z-0 ${wp.class}`} />;
+                      })()}
+
+                      <div className="relative z-10 flex items-center justify-between px-6 py-4 border-b border-white/10 bg-[#0d0d10]/80 backdrop-blur-md">
+                        <div 
+                          onClick={() => setShowUserProfileModal(true)}
+                          className="flex items-center space-x-3 cursor-pointer hover:opacity-80 transition-opacity"
+                        >
+                          {renderAvatarWithRing(activeConversation.user.avatar, activeConversation.user.ring, 'w-9 h-9')}
+                          <div>
+                            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                              {activeConversation.user.name}
+                              <ZapIcon className="w-3 h-3 text-pink-400 inline" />
+                            </h3>
+                            <p className="text-[10px] text-slate-400">{activeConversation.user.username} • {activeConversation.user.status}</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="relative z-10 flex-1 overflow-y-auto p-6 space-y-4">
+                        {activeConversation.messages.map((msg) => {
+                          const isMe = msg.sender === 'user-me';
+                          return (
+                            <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                              <div className={`flex items-center space-x-3 max-w-lg ${isMe ? 'flex-row-reverse space-x-reverse' : 'flex-row'}`}>
+                                {!isMe && renderAvatarWithRing(activeConversation.user.avatar, activeConversation.user.ring, 'w-8 h-8 text-xs')}
+                                <div>
+                                  <div className={`p-4 rounded-2xl text-xs text-center ${isMe ? 'bg-white text-black font-medium shadow-md' : 'bg-[#0d0d10]/90 text-slate-200 border border-white/10 backdrop-blur-md'}`}>
+                                    {msg.text && <p>{msg.text}</p>}
+                                    {msg.image && <img src={msg.image} alt="attachment" className="max-w-xs rounded-xl mt-2 border border-white/10" />}
+                                  </div>
+                                  <span className={`block text-[10px] text-slate-400 mt-1 ${isMe ? 'text-right' : 'text-left'}`}>{msg.timestamp}</span>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {isCameraActive && (
+                        <div className="relative z-20 p-4 bg-[#0d0d10] border-t border-white/10 flex flex-col items-center space-y-3">
+                          <video ref={videoRef} autoPlay playsInline className="w-full max-w-xs rounded-2xl border border-white/20" />
+                          <div className="flex space-x-3">
+                            <button onClick={capturePhoto} className="px-4 py-2 rounded-xl bg-pink-500 text-white text-xs font-bold">Capture Photo</button>
+                            <button onClick={stopCamera} className="px-4 py-2 rounded-xl bg-white/10 text-white text-xs font-semibold">Cancel</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {isRecordingVoice && (
+                        <div className="relative z-20 p-4 bg-[#0d0d10] border-t border-white/10 flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <span className="w-3 h-3 rounded-full bg-rose-500 animate-ping" />
+                            <span className="text-xs text-white font-mono">Recording Voice Clip...</span>
+                          </div>
+                          <div className="flex space-x-2">
+                            <button onClick={() => stopVoiceRecording(true)} className="px-4 py-2 rounded-xl bg-white text-black font-bold text-xs">Send Clip</button>
+                            <button onClick={() => stopVoiceRecording(false)} className="px-4 py-2 rounded-xl bg-white/10 text-slate-400 text-xs">Cancel</button>
+                          </div>
+                        </div>
+                      )}
+
+                      {!isCameraActive && !isRecordingVoice && (
+                        <div className="relative z-10 p-4 bg-transparent flex items-center space-x-3">
+                          <div className="flex items-center space-x-2">
+                            <label className="p-3 rounded-2xl bg-[#0d0d10]/90 border border-white/15 text-slate-300 hover:text-white hover:bg-white/10 cursor-pointer backdrop-blur-md shadow-lg transition-all">
+                              <PaperclipIcon className="w-4 h-4" />
+                              <input type="file" onChange={handleFileUpload} className="hidden" />
+                            </label>
+                            
+                            <button onClick={startCamera} className="p-3 rounded-2xl bg-[#0d0d10]/90 border border-white/15 text-slate-300 hover:text-white hover:bg-white/10 backdrop-blur-md shadow-lg transition-all">
+                              <CameraIcon className="w-4 h-4" />
+                            </button>
+                            
+                            <button onClick={startVoiceRecording} className="p-3 rounded-2xl bg-[#0d0d10]/90 border border-white/15 text-slate-300 hover:text-white hover:bg-white/10 backdrop-blur-md shadow-lg transition-all">
+                              <MicIcon className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="flex-1 flex items-center space-x-3 bg-[#0d0d10]/90 border border-white/15 rounded-2xl px-4 py-2.5 backdrop-blur-md shadow-lg">
+                            <input 
+                              type="text" 
+                              placeholder={`Message ${activeConversation.user.name}...`}
+                              value={messageInput}
+                              onChange={(e) => setMessageInput(e.target.value)}
+                              onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                              className="flex-1 bg-transparent text-xs text-white focus:outline-none placeholder:text-slate-500"
+                            />
+                            <button onClick={() => handleSendMessage()} className="p-2.5 rounded-xl bg-white text-black font-bold hover:scale-105 active:scale-95 transition-transform flex items-center justify-center">
+                              <SendIcon className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </main>
+                  </div>
+                )}
+
+                {/* Music Studio View */}
+                {activeTab === 'music' && (
+                  <div className="flex-1 flex flex-col md:flex-row h-full p-8 space-y-6 md:space-y-0 md:space-x-8 overflow-y-auto">
+                    <audio 
+                      ref={audioRef} 
+                      src={currentTrack?.audioUrl || ''}
+                      onTimeUpdate={() => audioRef.current && setCurrentTime(audioRef.current.currentTime)}
+                      onLoadedMetadata={() => audioRef.current && setDuration(audioRef.current.duration)}
+                    />
+
+                    {/* Left Player */}
+                    <div className="flex-1 flex flex-col items-center justify-center p-8 rounded-3xl bg-[#0d0d10] border border-white/10">
+                      <div className="w-64 h-64 rounded-2xl overflow-hidden shadow-2xl border border-white/10 mb-6 bg-white/5 flex items-center justify-center">
+                        {currentTrack ? (
+                          <img src={currentTrack.cover} alt={currentTrack.title} className="w-full h-full object-cover" />
+                        ) : (
+                          <MusicIcon className="w-16 h-16 text-slate-600" />
+                        )}
+                      </div>
+
+                      <h2 className="text-xl font-bold text-white">{currentTrack?.title || 'No Track Selected'}</h2>
+                      <p className="text-xs text-slate-400 mt-1">{currentTrack ? `${currentTrack.artist} • ${currentTrack.album}` : 'Import an audio file to start listening'}</p>
+
+                      <div className="w-full max-w-md space-y-2 mt-6">
+                        <input 
+                          type="range"
+                          min="0"
+                          max={duration || 100}
+                          value={currentTime}
+                          onChange={(e) => {
+                            const newTime = parseFloat(e.target.value);
+                            setCurrentTime(newTime);
+                            if (audioRef.current) audioRef.current.currentTime = newTime;
+                          }}
+                          className="w-full accent-pink-500 h-1 bg-white/20 rounded-lg appearance-none cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-slate-400 font-mono">
+                          <span>{formatTime(currentTime)}</span>
+                          <span>{formatTime(duration)}</span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center space-x-6 mt-6">
+                        <button 
+                          onClick={() => tracks.length && setCurrentTrackIndex(prev => (prev > 0 ? prev - 1 : tracks.length - 1))}
+                          className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+                          title="Previous Track"
+                        >
+                          <SkipBackIcon className="w-5 h-5" />
+                        </button>
+                        <button 
+                          onClick={() => tracks.length && setIsPlaying(!isPlaying)}
+                          className="p-4 rounded-full bg-white text-black font-bold shadow-xl hover:scale-105 active:scale-95 transition-transform"
+                          title={isPlaying ? "Pause" : "Play"}
+                        >
+                          {isPlaying ? <PauseIcon className="w-6 h-6 text-black" /> : <PlayIcon className="w-6 h-6 text-black ml-0.5" />}
+                        </button>
+                        <button 
+                          onClick={() => tracks.length && setCurrentTrackIndex(prev => (prev < tracks.length - 1 ? prev + 1 : 0))}
+                          className="p-3 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 transition-colors"
+                          title="Next Track"
+                        >
+                          <SkipForwardIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Right Playlist */}
+                    <div className="w-full md:w-96 flex flex-col bg-[#0d0d10] border border-white/10 rounded-3xl p-6">
+                      <div className="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+                        <h3 className="font-bold text-white text-sm">Music Library</h3>
+
+                        <label className="flex items-center space-x-1 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-semibold cursor-pointer">
+                          <span>+ Import</span>
+                          <input type="file" accept="audio/*" onChange={handleAudioImport} className="hidden" />
+                        </label>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto space-y-2">
+                        {tracks.length === 0 ? (
+                          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-500 space-y-2">
+                            <MusicIcon className="w-8 h-8 opacity-40" />
+                            <p className="text-xs">Your library is empty. Click "+ Import" to add MP3 files.</p>
+                          </div>
+                        ) : (
+                          tracks.map((tr, idx) => (
+                            <div 
+                              key={tr.id}
+                              onClick={() => { setCurrentTrackIndex(idx); setIsPlaying(true); }}
+                              className={`flex items-center space-x-3 p-3 rounded-2xl cursor-pointer border ${idx === currentTrackIndex ? 'bg-white/10 border-white/20 text-white' : 'border-transparent text-slate-400'}`}
+                            >
+                              <img src={tr.cover} alt="art" className="w-10 h-10 rounded-xl object-cover shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-xs font-semibold truncate text-white">{tr.title}</h4>
+                                <p className="text-[10px] text-slate-500 truncate">{tr.artist}</p>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Profile Customization View */}
+                {activeTab === 'profile' && (
+                  <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full space-y-8">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                      <h1 className="text-xl font-bold text-white">Profile Studio</h1>
+                      <button 
+                        onClick={() => setActiveTab('chat')}
+                        className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-semibold text-white"
+                      >
+                        Back to Chat
+                      </button>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-[#0d0d10] border border-white/10 space-y-3">
+                      <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Card Preview</span>
+                      <div className="relative h-28 rounded-2xl border border-white/20 overflow-hidden shadow-2xl">
+                        {renderBannerBackground(currentUser.banner)}
+                        <div className="relative z-10 flex items-center space-x-4 p-4 h-full bg-black/40 backdrop-blur-sm">
+                          {renderAvatarWithRing(currentUser.avatar, currentUser.ring, 'w-14 h-14')}
+                          <div className="min-w-0 flex-1">
+                            <h3 className="text-sm font-bold text-white truncate">{currentUser.displayName}</h3>
+                            <p className="text-xs text-slate-200 font-medium truncate mt-0.5">{currentUser.about}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-[#0d0d10] border border-white/10 space-y-4">
+                      <h3 className="text-sm font-bold text-white">Echo Banners</h3>
+                      <p className="text-xs text-slate-400">Solid Colors</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        {BANNERS_SOLID.map((b) => (
+                          <div 
+                            key={b.id}
+                            onClick={() => setCurrentUser({ ...currentUser, banner: b })}
+                            className={`h-16 rounded-xl cursor-pointer relative overflow-hidden border-2 ${currentUser.banner.id === b.id ? 'border-pink-500' : 'border-white/10'}`}
+                          >
+                            <div className={`absolute inset-0 ${b.class}`} />
+                            <span className="absolute bottom-2 left-2 text-[10px] font-semibold text-white z-10">{b.name}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-xs text-slate-400 pt-2">Live Animations</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {BANNERS_LIVE.map((b) => (
+                          <div 
+                            key={b.id}
+                            onClick={() => setCurrentUser({ ...currentUser, banner: b })}
+                            className={`h-16 rounded-xl cursor-pointer relative overflow-hidden border-2 ${currentUser.banner.id === b.id ? 'border-pink-500' : 'border-white/10'}`}
+                          >
+                            {renderBannerBackground(b)}
+                            <span className="absolute bottom-2 left-2 text-[10px] font-semibold text-white z-10">{b.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="p-6 rounded-3xl bg-[#0d0d10] border border-white/10 space-y-4">
+                      <h3 className="text-sm font-bold text-white">Halo Rings</h3>
+                      <p className="text-xs text-slate-400">Solid Colors</p>
+                      <div className="flex flex-wrap gap-4">
+                        {RINGS_SOLID.map((r) => (
+                          <div 
+                            key={r.id}
+                            onClick={() => setCurrentUser({ ...currentUser, ring: r })}
+                            className={`p-2 rounded-xl cursor-pointer border ${currentUser.ring.id === r.id ? 'bg-pink-500/20 border-pink-500' : 'border-white/10'}`}
+                          >
+                            {renderAvatarWithRing(currentUser.avatar, r, 'w-10 h-10')}
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-xs text-slate-400 pt-2">Live Animations</p>
+                      <div className="flex flex-wrap gap-4">
+                        {RINGS_LIVE.map((r) => (
+                          <div 
+                            key={r.id}
+                            onClick={() => setCurrentUser({ ...currentUser, ring: r })}
+                            className={`p-2 rounded-xl cursor-pointer border ${currentUser.ring.id === r.id ? 'bg-pink-500/20 border-pink-500' : 'border-white/10'}`}
+                          >
+                            {renderAvatarWithRing(currentUser.avatar, r, 'w-10 h-10')}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="pt-4">
+                      <button 
+                        onClick={handleLogout}
+                        className="w-full py-3.5 rounded-2xl bg-rose-950/40 border border-rose-500/60 text-rose-400 font-bold text-xs uppercase tracking-wider hover:bg-rose-900/60 transition-all"
+                      >
+                        Log Out Account
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* CHAT USER PROFILE MODAL */}
+              {showUserProfileModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xl">
+                  <div className="relative w-full max-w-md bg-[#0d0d10] border border-white/15 rounded-3xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+                    <button 
+                      onClick={() => setShowUserProfileModal(false)}
+                      className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-white/5"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+
+                    <div className="text-center space-y-2">
+                      <div className="flex justify-center">
+                        {renderAvatarWithRing(activeConversation.user.avatar, activeConversation.user.ring, 'w-16 h-16')}
+                      </div>
+                      <h3 className="text-base font-extrabold text-white">{activeConversation.user.name}</h3>
+                      <p className="text-xs text-pink-400 font-mono">{activeConversation.user.username}</p>
+                    </div>
+
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 font-semibold">Birthday:</span>
+                        <span className="text-white font-mono">June 15, 2005</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400 font-semibold">About Me:</span>
+                        <span className="text-white font-medium">{activeConversation.user.about}</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">Chat Background Wallpaper</h4>
+                      
+                      <p className="text-[11px] text-slate-400">Colors</p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {CHAT_WALLPAPERS_SOLID.map(wp => (
+                          <div 
+                            key={wp.id}
+                            onClick={() => setChatWallpapers({ ...chatWallpapers, [activeChatId]: wp })}
+                            className={`p-2.5 rounded-xl border text-center cursor-pointer text-[10px] font-semibold text-white ${wp.class} ${(chatWallpapers[activeChatId]?.id || CHAT_WALLPAPERS_SOLID[0].id) === wp.id ? 'border-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]' : 'border-white/10'}`}
+                          >
+                            {wp.name}
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 pt-2">Live Animations</p>
+                      <div className="grid grid-cols-2 gap-2">
+                        {CHAT_WALLPAPERS_LIVE.map(wp => (
+                          <div 
+                            key={wp.id}
+                            onClick={() => setChatWallpapers({ ...chatWallpapers, [activeChatId]: wp })}
+                            className={`relative h-14 rounded-xl border overflow-hidden cursor-pointer flex items-center justify-center ${chatWallpapers[activeChatId]?.id === wp.id ? 'border-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.8)]' : 'border-white/10'}`}
+                          >
+                            <div className="absolute inset-0 pointer-events-none">
+                              <LiveBannerCanvas type={wp.type} />
+                            </div>
+                            <span className="relative z-10 text-[10px] font-bold text-white drop-shadow-md">{wp.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ADD FRIEND MODAL */}
+              {showAddFriendModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xl">
+                  <div className="relative w-full max-w-sm bg-[#0d0d10] border border-white/15 rounded-3xl p-6 shadow-2xl space-y-4">
+                    <button 
+                      onClick={() => setShowAddFriendModal(false)}
+                      className="absolute top-4 right-4 p-2 text-slate-400 hover:text-white rounded-full bg-white/5"
+                    >
+                      <XIcon className="w-4 h-4" />
+                    </button>
+
+                    <div className="space-y-1">
+                      <h3 className="text-base font-extrabold text-white">Add Friend</h3>
+                      <p className="text-xs text-slate-400">Enter a username to connect directly.</p>
+                    </div>
+
+                    <form onSubmit={handleAddFriend} className="space-y-4">
+                      <input 
+                        type="text" 
+                        placeholder="Username..."
+                        value={friendUsernameInput}
+                        onChange={(e) => setFriendUsernameInput(e.target.value)}
+                        className="w-full px-4 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs text-white focus:outline-none focus:border-white/30"
+                      />
+                      <button 
+                        type="submit"
+                        className="w-full py-3 rounded-2xl bg-white text-black font-extrabold text-xs uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-xl"
+                      >
+                        Send Request
+                      </button>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {/* Floating Dock */}
+              <div 
+                ref={dockRef}
+                className={`fixed bottom-4 left-1/2 -translate-x-1/2 z-40 transition-all duration-300 transform ${isDockVisible ? 'translate-y-0 opacity-100 scale-100' : 'translate-y-24 opacity-0 scale-95 pointer-events-none'}`}
+              >
+                <div className="flex items-center space-x-2 px-4 py-2.5 rounded-full bg-[#0d0d10]/80 border border-white/20 backdrop-blur-2xl shadow-2xl">
+                  <button onClick={() => setActiveTab('chat')} className={`p-3 rounded-full transition-all ${activeTab === 'chat' ? 'bg-white/20 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Chat">
+                    <MessageSquareIcon className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setActiveTab('music')} className={`p-3 rounded-full transition-all ${activeTab === 'music' ? 'bg-white/20 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Music">
+                    <MusicIcon className="w-4 h-4" />
+                  </button>
+                  <button onClick={() => setActiveTab('profile')} className={`p-3 rounded-full transition-all ${activeTab === 'profile' ? 'bg-white/20 text-white shadow-lg' : 'text-slate-400 hover:text-white hover:bg-white/10'}`} title="Profile">
+                    <UserIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
